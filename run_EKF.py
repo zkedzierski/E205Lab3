@@ -11,7 +11,7 @@ Description:
 import csv
 import time
 import sys
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 import numpy as np
 import math
 import os.path
@@ -189,12 +189,12 @@ def calc_prop_jacobian_x(x_t_prev, u_t):
     G_x_t[0,2] = DT
     G_x_t[1,1] = 1
     G_x_t[1,3] = DT
-    G_x_t[1,4] = -u_t[0]*math.sin(x_t_prev[4])*DT
     G_x_t[2,2] = 1
-    G_x_t[2,4] = u_t[0]*math.cos(x_t_prev[4])*DT
+    G_x_t[2,4] = -u_t[0]*math.sin(x_t_prev[4])*DT
+    G_x_t[3,3] = 1
+    G_x_t[3,4] = u_t[0]*math.cos(x_t_prev[4])*DT
     G_x_t[4,4] = 1
     """STUDENT CODE END"""
-
     return G_x_t
 
 
@@ -285,7 +285,7 @@ def calc_kalman_gain(sigma_x_bar_t, H_t):
     # Covariance matrix of measurments
     Q = np.identity(3)
    
-    K_t = sigma_x_bar_t @ H_t.transpose() @  np.linalg.inv((H_t @ sigma_x_bar_t @ H_t.transpose()) + Q)
+    K_t = sigma_x_bar_t @ H_t.transpose() @ np.linalg.inv( (H_t @ sigma_x_bar_t @ H_t.transpose() ) + Q)
     """STUDENT CODE END"""
 
     return K_t
@@ -325,7 +325,8 @@ def correction_step(x_bar_t, z_t, sigma_x_bar_t):
     """STUDENT CODE START"""
     H_t = calc_meas_jacobian(x_bar_t)
     K_t = calc_kalman_gain(sigma_x_bar_t, H_t) 
-    x_est_t = x_bar_t + K_t@(z_t - H_t@x_bar_t)
+    z_bar_t = calc_meas_prediction(x_bar_t)
+    x_est_t = x_bar_t + K_t@(z_t - z_bar_t)
     sigma_x_est_t = (np.identity(5) - K_t@H_t)@sigma_x_bar_t
     """STUDENT CODE END"""
     return [x_est_t, sigma_x_est_t]
@@ -338,7 +339,7 @@ def main():
     """Run a EKF on logged data from IMU and LiDAR moving in a box formation around a landmark"""
 
     # filepath = "./logs/"
-    filename = "/Users/kevinkong/Documents/E205/Lab 3/E205Lab3/2020_2_26__16_59_7_filtered"
+    filename = "/Users/kevinkong/Documents/E205/E205Lab3/2020_2_26__16_59_7_filtered"
     data, is_filtered = load_data(filename)
 
     # # Save filtered data so don't have to process unfiltered data everytime
@@ -396,7 +397,11 @@ def main():
     # Moving Average over 3
     xdd_df = pd.DataFrame(x_ddot, columns = ["xdd"])
     x_moving_avg = xdd_df["xdd"].rolling(3).mean()
+    x_moving_avg[0] = 0
+    x_moving_avg[1] = 0
     counter = 0
+    print(x_moving_avg)
+    print(x_ddot)
 
     #  Run filter over data
     for t, _ in enumerate(time_stamps):
@@ -436,11 +441,8 @@ def main():
         # Log Data
      
         # state_estimates[:, t] = state_est_t
-        state_estimates[0:t] = state_est_t[0]
-        state_estimates[1:t] = state_est_t[1]
-        state_estimates[2:t] = state_est_t[2]
-        state_estimates[3:t] = state_est_t[3]
-        state_estimates[4:t] = state_est_t[4]
+        for i in range(N):
+            state_estimates[i,t] = state_est_t[i]
         covariance_estimates[:, :, t] = var_est_t
 
         x_gps, y_gps = convert_gps_to_xy(lat_gps=lat_gps[t],
@@ -453,10 +455,10 @@ def main():
 
 
     """STUDENT CODE START"""
-    # Plot or print results here
-    print(gps_estimates)
-    plt.plot(gps_estimates[0],gps_estimates[1])
-    #plt.plot(state_est_t[0], state_est_t[1])
+    # Plot or print results her
+    # plt.plot(gps_estimates[0],gps_estimates[1])
+    # plt.plot(state_estimates[0,:], state_estimates[1,:])
+    plt.plot(x_ddot, y_ddot)
     plt.xlabel("X Coord")
     plt.ylabel("Y Coord")
     plt.title("GPS coord")
