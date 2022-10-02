@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 import os.path
+import pandas as pd
 
 HEIGHT_THRESHOLD = 0.0  # meters
 GROUND_HEIGHT_THRESHOLD = -.4  # meters
@@ -253,7 +254,6 @@ def calc_meas_jacobian(x_bar_t):
     Returns:
     H_t (np.array)      -- Jacobian of measurment model
     """
-    [x, y, theta]
     """STUDENT CODE START"""
     H_t = np.zeros((3, 5))
     # H_t[0,0] = -math.sin(x_bar_t[4])
@@ -337,14 +337,14 @@ def getYawVel(yawPrev, yawCurr):
 def main():
     """Run a EKF on logged data from IMU and LiDAR moving in a box formation around a landmark"""
 
-    filepath = "./logs/"
-    filename =
-    data, is_filtered = load_data(filepath + filename)
+    # filepath = "./logs/"
+    filename = "/Users/kevinkong/Documents/E205/Lab 3/E205Lab3/2020_2_26__16_59_7_filtered"
+    data, is_filtered = load_data(filename)
 
-    # Save filtered data so don't have to process unfiltered data everytime
-    if not is_filtered:
-        data = filter_data(data)
-        save_data(f_data, filepath+filename+"_filtered.csv")
+    # # Save filtered data so don't have to process unfiltered data everytime
+    # if not is_filtered:
+    #     data = filter_data(data)
+    #     save_data(f_data, filename)
 
     # Load data into variables
     x_lidar = data["X"]
@@ -364,23 +364,41 @@ def main():
     #  Initialize filter
     """STUDENT CODE START"""
     N = 5 # number of states
-    state_est_t_prev = np.array([5, 1])
-    # TO DO: MAKE INITIAL GESS
 
+    """INITIAL GUESS HARDCODED"""
+    [x_intial, y_intial] = convert_gps_to_xy(lat_origin, lon_origin, lat_origin, lon_origin)  
+    state_est_t_prev = [x_intial, y_intial, 0 , 0, 0]
     var_est_t_prev = np.identity(N)
-
+    
     state_estimates = np.empty((N, len(time_stamps)))
+    for i in range(N):
+        state_estimates[i, 0] = state_est_t_prev[i]
+
     covariance_estimates = np.empty((N, N, len(time_stamps)))
+    for i in range(N):
+        for j in range(N):
+            covariance_estimates[i, j, 0] = var_est_t_prev[i, j]
+
     gps_estimates = np.empty((2, len(time_stamps)))
+    # for i in range(2):
+    #     gps_estimates[i,0] = [lat_origin, lon_origin]
+    gps_estimates[0,0] = lat_origin
+    gps_estimates[1,0] = lon_origin
     """STUDENT CODE END"""
 
     # Moving Average over 3
-    x_moving_avg = x_ddot[t].rolling(3).mean()
+    xdd_df = pd.DataFrame(x_ddot)
+    x_moving_avg = xdd_df.rolling(3).mean()
+    counter = 0
 
     #  Run filter over data
-    for t, _ in enumerate(timee_stamps):
+    for t, _ in enumerate(time_stamps):
         # Get control input
         """STUDENT CODE START"""
+        # Justin's hacky code: may not work
+        if counter < 2:
+            counter += 1
+            continue
      
         # Input
         u_t = np.array([2, 1])
@@ -394,9 +412,9 @@ def main():
         # Get measurement
         """STUDENT CODE START"""
         z_t = np.array([3, 1])
-        z_t[0] = x_lidar[t]
-        z_t[1] = y_lidar[t]
-        z_t[2] = yaw_lidar
+        z_t[0] = 5 - (y_lidar[t]* math.cos(yaw_lidar[t]) + x_lidar[t]*math.sin(yaw_lidar[t]))
+        z_t[1] = -5 - (y_lidar[t]* math.sin(yaw_lidar[t]) - x_lidar[t]*math.cos(yaw_lidar[t]))
+        z_t[2] = yaw_lidar[t]
         """STUDENT CODE END"""
 
         # Correction Step
@@ -420,6 +438,12 @@ def main():
 
     """STUDENT CODE START"""
     # Plot or print results here
+    plt.plot(x_gps, y_gps)
+    plt.plot(state_est_t[0], state_est_t[1])
+    plt.xlabel("X Coord")
+    plt.ylabel("Y Coord")
+    plt.title("GPS coord")
+    plt.show()
     """STUDENT CODE END"""
     return 0
 
