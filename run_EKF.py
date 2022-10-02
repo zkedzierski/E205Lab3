@@ -237,9 +237,9 @@ def prediction_step(x_t_prev, u_t, sigma_x_t_prev):
     sigma_u_t = np.zeros((5,5))  # add shape of matrix
     G_x = calc_prop_jacobian_x(x_t_prev, u_t)
     G_u = calc_prop_jacobian_u(x_t_prev, u_t)
-    x_bar_t = G_x*x_t_prev + G_u*u_t
+    x_bar_t = G_x@x_t_prev + G_u@u_t
     R = np.identity(2)
-    sigma_x_bar_t = G_x*sigma_x_t_prev*G_x.transpose() + G_u*R+G_u.transpose() 
+    sigma_x_bar_t = G_x@sigma_x_t_prev@G_x.transpose() + G_u@R@G_u.transpose()
     """STUDENT CODE END"""
 
     return [x_bar_t, sigma_x_bar_t]
@@ -265,7 +265,7 @@ def calc_meas_jacobian(x_bar_t):
     # H_t[2,4] = 1
     H_t[0,0] = 1
     H_t[1,1] = 1
-    H_t[4,4] = 1
+    H_t[2,4] = 1
     """STUDENT CODE END"""
 
     return H_t
@@ -284,6 +284,7 @@ def calc_kalman_gain(sigma_x_bar_t, H_t):
     """STUDENT CODE START"""
     # Covariance matrix of measurments
     Q = np.identity(3)
+   
     K_t = sigma_x_bar_t @ H_t.transpose() @  np.linalg.inv((H_t @ sigma_x_bar_t @ H_t.transpose()) + Q)
     """STUDENT CODE END"""
 
@@ -302,7 +303,7 @@ def calc_meas_prediction(x_bar_t):
 
     """STUDENT CODE START"""
     z_bar_t = np.ones([3, 1])
-    z_bar_t = calc_meas_jacobian(x_bar_t)*x_bar_t
+    z_bar_t = calc_meas_jacobian(x_bar_t)@x_bar_t
     """STUDENT CODE END"""
 
     return z_bar_t
@@ -322,12 +323,11 @@ def correction_step(x_bar_t, z_t, sigma_x_bar_t):
     """
 
     """STUDENT CODE START"""
-    H_t = calc_meas_prediction(x_bar_t)
+    H_t = calc_meas_jacobian(x_bar_t)
     K_t = calc_kalman_gain(sigma_x_bar_t, H_t) 
-    x_est_t = x_bar_t + K_t*(z_t - H_t*x_bar_t)
-    sigma_x_est_t = (np.identity(5) - K_t*H_t)*sigma_x_bar_t
+    x_est_t = x_bar_t + K_t@(z_t - H_t@x_bar_t)
+    sigma_x_est_t = (np.identity(5) - K_t@H_t)@sigma_x_bar_t
     """STUDENT CODE END"""
-
     return [x_est_t, sigma_x_est_t]
 
 
@@ -367,7 +367,12 @@ def main():
 
     """INITIAL GUESS HARDCODED"""
     [x_intial, y_intial] = convert_gps_to_xy(lat_origin, lon_origin, lat_origin, lon_origin)  
-    state_est_t_prev = [x_intial, y_intial, 0 , 0, 0]
+    state_est_t_prev = np.empty([N, 1])
+    state_est_t_prev[0,0] = x_intial
+    state_est_t_prev[1,0] = y_intial
+    state_est_t_prev[2,0] = 0
+    state_est_t_prev[3,0] = 0
+    state_est_t_prev[4,0] = 0
     var_est_t_prev = np.identity(N)
     
     state_estimates = np.empty((N, len(time_stamps)))
@@ -382,13 +387,15 @@ def main():
     gps_estimates = np.empty((2, len(time_stamps)))
     # for i in range(2):
     #     gps_estimates[i,0] = [lat_origin, lon_origin]
-    gps_estimates[0,0] = lat_origin
-    gps_estimates[1,0] = lon_origin
+    [gps_estimate_x, gps_estimate_y] = convert_gps_to_xy(lat_origin, lon_origin, lat_origin, lon_origin)
+
+    gps_estimates[0,0] = gps_estimate_x
+    gps_estimates[1,0] = gps_estimate_y
     """STUDENT CODE END"""
 
     # Moving Average over 3
-    xdd_df = pd.DataFrame(x_ddot)
-    x_moving_avg = xdd_df.rolling(3).mean()
+    xdd_df = pd.DataFrame(x_ddot, columns = ["xdd"])
+    x_moving_avg = xdd_df["xdd"].rolling(3).mean()
     counter = 0
 
     #  Run filter over data
@@ -401,7 +408,7 @@ def main():
             continue
      
         # Input
-        u_t = np.array([2, 1])
+        u_t = np.empty([2, 1])
         u_t[0] = x_moving_avg[t]
         u_t[1] = getYawVel(yaw_lidar[t], yaw_lidar[t-1])
         """STUDENT CODE END"""
@@ -411,7 +418,7 @@ def main():
 
         # Get measurement
         """STUDENT CODE START"""
-        z_t = np.array([3, 1])
+        z_t = np.empty([3, 1])
         z_t[0] = 5 - (y_lidar[t]* math.cos(yaw_lidar[t]) + x_lidar[t]*math.sin(yaw_lidar[t]))
         z_t[1] = -5 - (y_lidar[t]* math.sin(yaw_lidar[t]) - x_lidar[t]*math.cos(yaw_lidar[t]))
         z_t[2] = yaw_lidar[t]
@@ -427,7 +434,13 @@ def main():
         var_est_t_prev = var_est_t
 
         # Log Data
-        state_estimates[:, t] = state_est_t
+     
+        # state_estimates[:, t] = state_est_t
+        state_estimates[0:t] = state_est_t[0]
+        state_estimates[1:t] = state_est_t[1]
+        state_estimates[2:t] = state_est_t[2]
+        state_estimates[3:t] = state_est_t[3]
+        state_estimates[4:t] = state_est_t[4]
         covariance_estimates[:, :, t] = var_est_t
 
         x_gps, y_gps = convert_gps_to_xy(lat_gps=lat_gps[t],
@@ -435,11 +448,15 @@ def main():
                                          lat_origin=lat_origin,
                                          lon_origin=lon_origin)
         gps_estimates[:, t] = np.array([x_gps, y_gps])
+        # gps_estimates[0,t] = x_gps
+        # gps_estimates[1,t] = y_gps
+
 
     """STUDENT CODE START"""
     # Plot or print results here
-    plt.plot(x_gps, y_gps)
-    plt.plot(state_est_t[0], state_est_t[1])
+    print(gps_estimates)
+    plt.plot(gps_estimates[0],gps_estimates[1])
+    #plt.plot(state_est_t[0], state_est_t[1])
     plt.xlabel("X Coord")
     plt.ylabel("Y Coord")
     plt.title("GPS coord")
