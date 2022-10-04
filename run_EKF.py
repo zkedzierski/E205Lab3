@@ -154,7 +154,6 @@ def wrap_to_pi(angle):
         angle += 2*math.pi
     return angle
 
-
 def propogate_state(x_t_prev, u_t):
     """Propogate/predict the state based on chosen motion model
 
@@ -256,18 +255,10 @@ def calc_meas_jacobian(x_bar_t):
     """
     """STUDENT CODE START"""
     H_t = np.zeros((3, 5))
-    # H_t[0,0] = -math.sin(x_bar_t[4])
-    # H_t[0,1] = -math.cos(x_bar_t[4])
-    # H_t[0,4] = x_bar_t[1]*math.sin(x_bar_t[4]) - x_bar_t[0]*math.cos(x_bar_t[4])
-    # H_t[1,0] = -H_t[0,1]
-    # H_t[1,1] = -H_t[0,0]
-    # H_t[1,4] = -x_bar_t[1]*math.cos(x_bar_t[4]) - x_bar_t[0]*math.sin(x_bar_t[4])
-    # H_t[2,4] = 1
     H_t[0,0] = 1
     H_t[1,1] = 1
     H_t[2,4] = 1
     """STUDENT CODE END"""
-
     return H_t
 
 
@@ -284,10 +275,8 @@ def calc_kalman_gain(sigma_x_bar_t, H_t):
     """STUDENT CODE START"""
     # Covariance matrix of measurments
     Q = np.identity(3)
-   
     K_t = sigma_x_bar_t @ H_t.transpose() @ np.linalg.inv( (H_t @ sigma_x_bar_t @ H_t.transpose() ) + Q)
     """STUDENT CODE END"""
-
     return K_t
 
 
@@ -362,6 +351,9 @@ def main():
     lat_origin = lat_gps[0]
     lon_origin = lon_gps[0]
 
+    for t in range(len(time_stamps)):
+            yaw_lidar[t] = wrap_to_pi(yaw_lidar[t] *  math.pi /180)
+
     #  Initialize filter
     """STUDENT CODE START"""
     N = 5 # number of states
@@ -378,7 +370,7 @@ def main():
     
     state_estimates = np.empty((N, len(time_stamps)))
     for i in range(N):
-        state_estimates[i, 0] = state_est_t_prev[i]
+        state_estimates[i, 0] = state_est_t_prev[i, 0]
 
     covariance_estimates = np.empty((N, N, len(time_stamps)))
     for i in range(N):
@@ -415,7 +407,7 @@ def main():
         # Input
         u_t = np.empty([2, 1])
         u_t[0] = x_moving_avg[t]
-        u_t[1] = getYawVel(yaw_lidar[t], yaw_lidar[t-1])
+        u_t[1] = getYawVel(wrap_to_pi(yaw_lidar[t-1]), wrap_to_pi(yaw_lidar[t]))
         """STUDENT CODE END"""
 
         # Prediction Step
@@ -424,9 +416,9 @@ def main():
         # Get measurement
         """STUDENT CODE START"""
         z_t = np.empty([3, 1])
-        z_t[0] = 5 - (y_lidar[t]* math.cos(yaw_lidar[t]) + x_lidar[t]*math.sin(yaw_lidar[t]))
-        z_t[1] = -5 - (y_lidar[t]* math.sin(yaw_lidar[t]) - x_lidar[t]*math.cos(yaw_lidar[t]))
-        z_t[2] = yaw_lidar[t]
+        z_t[0] = 5 - (y_lidar[t]* math.cos(wrap_to_pi(yaw_lidar[t])) + x_lidar[t]*math.sin(wrap_to_pi(yaw_lidar[t])))
+        z_t[1] = -5 - (y_lidar[t]* math.sin(wrap_to_pi(yaw_lidar[t])) - x_lidar[t]*math.cos(wrap_to_pi(yaw_lidar[t])))
+        z_t[2] = wrap_to_pi(yaw_lidar[t])
         """STUDENT CODE END"""
 
         # Correction Step
@@ -443,6 +435,7 @@ def main():
         # state_estimates[:, t] = state_est_t
         for i in range(N):
             state_estimates[i,t] = state_est_t[i]
+
         covariance_estimates[:, :, t] = var_est_t
 
         x_gps, y_gps = convert_gps_to_xy(lat_gps=lat_gps[t],
@@ -455,10 +448,9 @@ def main():
 
 
     """STUDENT CODE START"""
-    # Plot or print results her
-    # plt.plot(gps_estimates[0],gps_estimates[1])
-    # plt.plot(state_estimates[0,:], state_estimates[1,:])
-    plt.plot(x_ddot, y_ddot)
+    # Plot or print results here
+    plt.plot(gps_estimates[0],gps_estimates[1])
+    plt.plot(state_estimates[0,:], state_estimates[1,:])
     plt.xlabel("X Coord")
     plt.ylabel("Y Coord")
     plt.title("GPS coord")
