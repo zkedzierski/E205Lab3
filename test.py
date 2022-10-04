@@ -17,10 +17,8 @@ EARTH_RADIUS = 6.3781E6  # meters
  
 def load_data(filename):
     """Load data from the csv log
-
     Parameters:
     filename (str)  -- the name of the csv log
-
     Returns:
     data (dict)     -- the logged data with data categories as keys
                        and values list of floats
@@ -61,7 +59,6 @@ def load_data(filename):
 
 def save_data(data, filename):
     """Save data from dictionary to csv
-
     Parameters:
     filename (str)  -- the name of the csv log
     data (dict)     -- data to log
@@ -81,10 +78,8 @@ def save_data(data, filename):
 
 def filter_data(data):
     """Filter lidar points based on height and duplicate time stamp
-
     Parameters:
     data (dict)             -- unfilterd data
-
     Returns:
     filtered_data (dict)    -- filtered data
     """
@@ -110,13 +105,11 @@ def filter_data(data):
 
 def convert_gps_to_xy(lat_gps, lon_gps, lat_origin, lon_origin):
     """Convert gps coordinates to cartesian with equirectangular projection
-
     Parameters:
     lat_gps     (float)    -- latitude coordinate
     lon_gps     (float)    -- longitude coordinate
     lat_origin  (float)    -- latitude coordinate of your chosen origin
     lon_origin  (float)    -- longitude coordinate of your chosen origin
-
     Returns:
     x_gps (float)          -- the converted x coordinate
     y_gps (float)          -- the converted y coordinate
@@ -129,10 +122,8 @@ def convert_gps_to_xy(lat_gps, lon_gps, lat_origin, lon_origin):
 
 def wrap_to_pi(angle):
     """Wrap angle data in radians to [-pi, pi]
-
     Parameters:
     angle (float)   -- unwrapped angle
-
     Returns:
     angle (float)   -- wrapped angle
     """
@@ -146,11 +137,9 @@ def wrap_to_pi(angle):
 
 def propogate_state(x_t_prev, u_t):
     """Propogate/predict the state based on chosen motion model
-
     Parameters:
     x_t_prev (np.array)  -- the previous state estimate
     u_t (np.array)       -- the current control input
-
     Returns:
     x_bar_t (np.array)   -- the predicted state
     """
@@ -164,11 +153,9 @@ def propogate_state(x_t_prev, u_t):
 
 def calc_prop_jacobian_x(x_t_prev, u_t):
     """Calculate the Jacobian of your motion model with respect to state
-
     Parameters:
     x_t_prev (np.array) -- the previous state estimate
     u_t (np.array)      -- the current control input
-
     Returns:
     G_x_t (np.array)    -- Jacobian of motion model wrt to x
     """
@@ -189,11 +176,9 @@ def calc_prop_jacobian_x(x_t_prev, u_t):
 
 def calc_prop_jacobian_u(x_t_prev, u_t):
     """Calculate the Jacobian of motion model with respect to control input
-
     Parameters:
     x_t_prev (np.array)     -- the previous state estimate
     u_t (np.array)          -- the current control input
-
     Returns:
     G_u_t (np.array)        -- Jacobian of motion model wrt to u
     """
@@ -210,12 +195,10 @@ def calc_prop_jacobian_u(x_t_prev, u_t):
 
 def prediction_step(x_t_prev, u_t, sigma_x_t_prev):
     """Compute the prediction of EKF
-
     Parameters:
     x_t_prev (np.array)         -- the previous state estimate
     u_t (np.array)              -- the control input
     sigma_x_t_prev (np.array)   -- the previous variance estimate
-
     Returns:
     x_bar_t (np.array)          -- the predicted state estimate of time t
     sigma_x_bar_t (np.array)    -- the predicted variance estimate of time t
@@ -233,7 +216,7 @@ def prediction_step(x_t_prev, u_t, sigma_x_t_prev):
     x_bar_t[1] = x_t_prev[1] + x_t_prev[3]*DT
     x_bar_t[2] = x_t_prev[2] + u_t[0]*math.cos(wrap_to_pi(x_t_prev[4]))*DT
     x_bar_t[3] = x_t_prev[3] + u_t[0]*math.sin(wrap_to_pi(x_t_prev[4]))*DT
-    x_bar_t[4] = wrap_to_pi(wrap_to_pi(x_t_prev[4]) + wrap_to_pi(u_t[1]*DT))
+    x_bar_t[4] = ((x_t_prev[4]) + (u_t[1]*DT))
     R = np.identity(2)
     sigma_x_bar_t = G_x@sigma_x_t_prev@G_x.transpose() + G_u@R@G_u.transpose()
     """STUDENT CODE END"""
@@ -243,10 +226,8 @@ def prediction_step(x_t_prev, u_t, sigma_x_t_prev):
 
 def calc_meas_jacobian(x_bar_t):
     """Calculate the Jacobian of your measurment model with respect to state
-
     Parameters:
     x_bar_t (np.array)  -- the predicted state
-
     Returns:
     H_t (np.array)      -- Jacobian of measurment model
     """
@@ -269,11 +250,9 @@ def calc_meas_jacobian(x_bar_t):
 
 def calc_kalman_gain(sigma_x_bar_t, H_t):
     """Calculate the Kalman Gain
-
     Parameters:
     sigma_x_bar_t (np.array)  -- the predicted state covariance matrix
     H_t (np.array)            -- the measurement Jacobian
-
     Returns:
     K_t (np.array)            -- Kalman Gain
     """
@@ -289,10 +268,8 @@ def calc_kalman_gain(sigma_x_bar_t, H_t):
 
 def calc_meas_prediction(x_bar_t):
     """Calculate predicted measurement based on the predicted state
-
     Parameters:
     x_bar_t (np.array)  -- the predicted state
-
     Returns:
     z_bar_t (np.array)  -- the predicted measurement
     """
@@ -312,7 +289,6 @@ def correction_step(x_bar_t, z_t, sigma_x_bar_t):
     x_bar_t       (np.array)    -- the predicted state estimate of time t
     z_t           (np.array)    -- the measured state of time t
     sigma_x_bar_t (np.array)    -- the predicted variance of time t
-
     Returns:
     x_est_t       (np.array)    -- the filtered state estimate of time t
     sigma_x_est_t (np.array)    -- the filtered variance estimate of time t
@@ -334,16 +310,37 @@ def correction_step(x_bar_t, z_t, sigma_x_bar_t):
 def getYawVel(yawCurr, yawPrev):
     return wrap_to_pi((yawCurr) - (yawPrev))/DT
 
-  
-state_est_t_prev = [1.92, -0.1, 0.88, -0.01, -0.03]
-var_est_t_prev = [[ 0.13, -0., 0.09, -0., -0. ],
-[-0., 0.08, -0., 0.02, -0.],
-[0.09, -0., 0.14, -0.01, -0.],
-[-0., 0.02, -0., 0.01, -0.],
-[ 0., 0., 0., 0., 0.01]]
-u_t = [0.51, 0.13]
-z_t = [2.02, -0.07, 0.04]
- 
+# TEST 1
+# state_est_t_prev = [1.92, -0.1, 0.88, -0.01, -0.03]
+# var_est_t_prev = [[ 0.13, -0., 0.09, -0., -0. ],
+# [-0., 0.08, -0., 0.02, -0.],
+# [0.09, -0., 0.14, -0.01, -0.],
+# [-0., 0.02, -0., 0.01, -0.],
+# [ 0., 0., 0., 0., 0.01]]
+# u_t = [0.51, 0.13]
+# z_t = np.array([[2.02], [-0.07], [0.04]])
+# mostly correct (though Xdot might be off)
+
+# TEST 2
+# state_est_t_prev = [9.13, -9.77, -0.74, -0.11, -3.23]
+# u_t = [0.83, -0.09]
+# z_t = np.array([[8.72], [-9.55], [3.13]])
+# state_est_t_pre = [9.06 -9.78 -0.83 -0.11 -3.24]
+# var_est_t_prev = [[0.15, -0.01, 0.1, -0.01, 0.],
+# [-0.01, 0.07, -0.02, 0.02, 0. ],
+# [ 0.1, -0.02, 0.15 -0.02, 0. ],
+# [-0.01, 0.02, -0.02, 0.01, 0. ],
+# [-0.,  -0.,  -0., 0., 0.01]]
+
+# Test 4
+state_est_t_prev = [10.11, -2.65, 0.1, -0.23, -1.41]
+var_est_t_prev = [[ 0.05, -0.01, 0.01, -0.01, 0. ],
+                  [-0.01, 0.13, -0.01 ,0.09, 0. ],
+                  [ 0.01, -0.01, 0.01, -0.02, 0. ],
+                  [-0.01, 0.09, -0.02, 0.14, 0. ],
+                  [ 0., 0. , 0. ,0., 0.01]]
+u_t =  [-1., 0.05]
+z_t = np.array([[9.9], [-2.92], [-1.54]])
 
 state_pred_t, var_pred_t = prediction_step(state_est_t_prev, u_t, var_est_t_prev)
 print("x_bar_t")
@@ -352,5 +349,9 @@ print("sigma_bar_t")
 print(var_pred_t)
 
 state_est_t, var_est_t = correction_step(state_pred_t,
-                                                 z_t,
-                                                 var_pred_t)
+                                                  z_t,
+                                                  var_pred_t)
+print("correction")
+print(state_est_t)
+print(var_est_t)
+

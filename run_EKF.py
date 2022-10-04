@@ -236,7 +236,14 @@ def prediction_step(x_t_prev, u_t, sigma_x_t_prev):
     sigma_u_t = np.zeros((5,5))  # add shape of matrix
     G_x = calc_prop_jacobian_x(x_t_prev, u_t)
     G_u = calc_prop_jacobian_u(x_t_prev, u_t)
-    x_bar_t = G_x@x_t_prev + G_u@u_t
+    # x_bar_t = G_x@x_t_prev + G_u@u_t
+    # x_bar_t[4] = wrap_to_pi(x_bar_t[4])
+    x_bar_t = np.empty([5,1])
+    x_bar_t[0] = x_t_prev[0] + x_t_prev[2]*DT
+    x_bar_t[1] = x_t_prev[1] + x_t_prev[3]*DT
+    x_bar_t[2] = x_t_prev[2] + u_t[0]*math.cos(wrap_to_pi(x_t_prev[4]))*DT
+    x_bar_t[3] = x_t_prev[3] + u_t[0]*math.sin(wrap_to_pi(x_t_prev[4]))*DT
+    x_bar_t[4] = ((x_t_prev[4]) + (u_t[1]*DT))
     R = np.identity(2)
     sigma_x_bar_t = G_x@sigma_x_t_prev@G_x.transpose() + G_u@R@G_u.transpose()
     """STUDENT CODE END"""
@@ -316,13 +323,14 @@ def correction_step(x_bar_t, z_t, sigma_x_bar_t):
     K_t = calc_kalman_gain(sigma_x_bar_t, H_t) 
     z_bar_t = calc_meas_prediction(x_bar_t)
     x_est_t = x_bar_t + K_t@(z_t - z_bar_t)
+    x_est_t[2] = wrap_to_pi(x_est_t[2])
     sigma_x_est_t = (np.identity(5) - K_t@H_t)@sigma_x_bar_t
     """STUDENT CODE END"""
     return [x_est_t, sigma_x_est_t]
 
 
 def getYawVel(yawPrev, yawCurr):
-    return wrap_to_pi((yawCurr - yawPrev))/DT
+    return (yawCurr - yawPrev)/DT
 
 def main():
     """Run a EKF on logged data from IMU and LiDAR moving in a box formation around a landmark"""
@@ -350,7 +358,7 @@ def main():
     y_ddot = data["AccelY"] # TO DO: MOVING WINDOW AVERAGE
     lat_origin = lat_gps[0]
     lon_origin = lon_gps[0]
-
+    
     for t in range(len(time_stamps)):
             yaw_lidar[t] = wrap_to_pi(yaw_lidar[t] *  math.pi /180)
 
@@ -370,16 +378,20 @@ def main():
     
     state_estimates = np.empty((N, len(time_stamps)))
     for i in range(N):
-        state_estimates[i, 0] = state_est_t_prev[i, 0]
+        if i == 4:
+            state_estimates[i, 0] = wrap_to_pi(state_est_t_prev[i, 0])
+        else:
+            state_estimates[i, 0] = state_est_t_prev[i, 0]
 
-    covariance_estimates = np.empty((N, N, len(time_stamps)))
+    covariance_estimates = np.empty((N, N, len(time_stamps) ))
+    #####
     for i in range(N):
         for j in range(N):
             covariance_estimates[i, j, 0] = var_est_t_prev[i, j]
+    #####
 
     gps_estimates = np.empty((2, len(time_stamps)))
-    # for i in range(2):
-    #     gps_estimates[i,0] = [lat_origin, lon_origin]
+
     [gps_estimate_x, gps_estimate_y] = convert_gps_to_xy(lat_origin, lon_origin, lat_origin, lon_origin)
 
     gps_estimates[0,0] = gps_estimate_x
@@ -392,8 +404,6 @@ def main():
     x_moving_avg[0] = 0
     x_moving_avg[1] = 0
     counter = 0
-    print(x_moving_avg)
-    print(x_ddot)
 
     #  Run filter over data
     for t, _ in enumerate(time_stamps):
@@ -407,7 +417,7 @@ def main():
         # Input
         u_t = np.empty([2, 1])
         u_t[0] = x_moving_avg[t]
-        u_t[1] = getYawVel(wrap_to_pi(yaw_lidar[t-1]), wrap_to_pi(yaw_lidar[t]))
+        u_t[1] = getYawVel(yaw_lidar[t-1], yaw_lidar[t])
         """STUDENT CODE END"""
 
         # Prediction Step
@@ -425,7 +435,6 @@ def main():
         state_est_t, var_est_t = correction_step(state_pred_t,
                                                  z_t,
                                                  var_pred_t)
-
         #  For clarity sake/teaching purposes, we explicitly update t->(t-1)
         state_est_t_prev = state_est_t
         var_est_t_prev = var_est_t
@@ -451,9 +460,9 @@ def main():
     # Plot or print results here
     plt.plot(gps_estimates[0],gps_estimates[1])
     plt.plot(state_estimates[0,:], state_estimates[1,:])
-    plt.xlabel("X Coord")
-    plt.ylabel("Y Coord")
-    plt.title("GPS coord")
+    plt.xlabel("X Coord (m)")
+    plt.ylabel("Y Coord (m)")
+    plt.title("Real vs Estimated Path")
     plt.show()
     """STUDENT CODE END"""
     return 0
