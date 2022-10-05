@@ -336,7 +336,7 @@ def main():
     """Run a EKF on logged data from IMU and LiDAR moving in a box formation around a landmark"""
 
     # filepath = "./logs/"
-    filename = "/Users/kevinkong/Documents/E205/E205Lab3/2020_2_26__16_59_7_filtered"
+    filename = "2020_2_26__16_59_7_filtered"
     data, is_filtered = load_data(filename)
 
     # # Save filtered data so don't have to process unfiltered data everytime
@@ -360,7 +360,7 @@ def main():
     lon_origin = lon_gps[0]
     
     for t in range(len(time_stamps)):
-            yaw_lidar[t] = wrap_to_pi(yaw_lidar[t] *  math.pi /180)
+            yaw_lidar[t] = (-1*yaw_lidar[t] *  math.pi /180)
 
     #  Initialize filter
     """STUDENT CODE START"""
@@ -410,9 +410,6 @@ def main():
         # Get control input
         """STUDENT CODE START"""
         # Justin's hacky code: may not work
-        if counter < 2:
-            counter += 1
-            continue
      
         # Input
         u_t = np.empty([2, 1])
